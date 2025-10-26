@@ -32,9 +32,10 @@ This is a quick reference for configuring PR-CYBR-P0D.
 - **When**: Anytime you want to sync immediately
 - **Action**: Same as scheduled sync
 
-### Webhook (Future)
-- **When**: Notion database changes (requires webhook setup)
-- **Trigger**: `repository_dispatch` event
+### Webhook (Setup Required)
+- **When**: Notion database changes
+- **Trigger**: `repository_dispatch` event with type `notion-webhook`
+- **Status**: Workflow ready, Notion webhook endpoint setup required
 - **Action**: Real-time sync on database updates
 
 ## File Naming Pattern
@@ -47,7 +48,7 @@ episode-{NUM}-{slug}-metadata.json
 Examples:
 - `episode-001-introduction.mp3`
 - `episode-042-security-basics.mp3`
-- `episode-a1b2c3d4-untitled.mp3` (no episode number)
+- `episode-a1b2c3d4-episode-title.mp3` (no episode number, hash from title)
 
 ## First-Time Setup Checklist
 
