@@ -1,6 +1,6 @@
 PR-CYBR-P0D Release Schedule
 ============================================================
-Generated: 2025-10-26 23:36:24 UTC
+Generated: 2025-10-26 23:39:41 UTC
 Pattern: Monday/Wednesday/Friday at 06:00 UTC
 ============================================================
 
