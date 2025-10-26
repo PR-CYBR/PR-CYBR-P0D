@@ -1,0 +1,10 @@
+{
+  "title": "Sample Episode - Getting Started",
+  "release_date": "2024-01-15",
+  "episode_number": 1,
+  "description": "Welcome to the PR-CYBR Podcast! In this inaugural episode...",
+  "notion_id": "abc123-def456-ghi789",
+  "file_url": "https://example.com/episode-001.mp3",
+  "downloaded_at": "2024-01-15T12:00:00",
+  "file_size": 45678901
+}
