@@ -1,0 +1,59 @@
+name: Create Branch Structure
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  create-branches:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Create required branches
+        run: |
+          # Configure git
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # List of required branches from spec-bootstrap
+          BRANCHES=("dev" "spec" "plan" "impl" "design" "test" "stage" "prod" "pages" "codex")
+          
+          echo "Creating branch structure..."
+          
+          for branch in "${BRANCHES[@]}"; do
+            # Check if branch exists remotely
+            if git ls-remote --heads origin "$branch" | grep -q "$branch"; then
+              echo "✓ Branch '$branch' already exists"
+            else
+              echo "→ Creating branch '$branch'"
+              git push origin HEAD:refs/heads/"$branch"
+            fi
+          done
+          
+          echo ""
+          echo "Branch structure created successfully!"
+      
+      - name: Summary
+        run: |
+          echo "### Branch Creation Complete 🌳" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Created the following branches from spec-bootstrap model:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- \`dev\` - Active development" >> $GITHUB_STEP_SUMMARY
+          echo "- \`spec\` - Specifications and requirements" >> $GITHUB_STEP_SUMMARY
+          echo "- \`plan\` - Implementation planning" >> $GITHUB_STEP_SUMMARY
+          echo "- \`impl\` - Implementation work" >> $GITHUB_STEP_SUMMARY
+          echo "- \`design\` - Design artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- \`test\` - Testing environment" >> $GITHUB_STEP_SUMMARY
+          echo "- \`stage\` - Staging/pre-production" >> $GITHUB_STEP_SUMMARY
+          echo "- \`prod\` - Production deployment" >> $GITHUB_STEP_SUMMARY
+          echo "- \`pages\` - Documentation site" >> $GITHUB_STEP_SUMMARY
+          echo "- \`codex\` - Knowledge base" >> $GITHUB_STEP_SUMMARY

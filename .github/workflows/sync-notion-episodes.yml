@@ -1,0 +1,86 @@
+name: Sync Notion Episodes
+
+on:
+  # Run daily at midnight UTC
+  schedule:
+    - cron: '0 0 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+  
+  # Future: webhook trigger
+  repository_dispatch:
+    types: [notion-webhook]
+
+permissions:
+  contents: write
+
+jobs:
+  sync-episodes:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+      
+      - name: Run Notion sync
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: |
+          python scripts/sync_notion.py
+      
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No new episodes to commit"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "New episodes found"
+          fi
+      
+      - name: Commit and push changes
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Add all new episodes
+          git add episodes/
+          
+          # Create commit message with episode details
+          EPISODE_COUNT=$(git diff --staged --name-only | grep -c '\.mp3$' || echo "0")
+          git commit -m "feat: sync $EPISODE_COUNT new episode(s) from Notion" \
+                     -m "Automated sync from pr-cyberpod Notion database" \
+                     -m "Synced at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          
+          git push
+      
+      - name: Summary
+        run: |
+          echo "### Sync Complete 🎙️" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.changes.outputs.has_changes }}" == "true" ]; then
+            EPISODE_COUNT=$(git diff HEAD~1 --name-only | grep -c '\.mp3$' || echo "0")
+            echo "✅ Successfully synced **$EPISODE_COUNT** new episode(s)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**New Episodes:**" >> $GITHUB_STEP_SUMMARY
+            git diff HEAD~1 --name-only | grep '\.mp3$' | sed 's|episodes/||' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || true
+          else
+            echo "ℹ️ No new episodes to sync" >> $GITHUB_STEP_SUMMARY
+          fi
