@@ -1,0 +1,129 @@
+name: Retrofit Episodes
+
+on:
+  # Manual trigger for backfill operations
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season number to process (leave empty for all)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run mode (no changes to Notion)'
+        required: false
+        type: boolean
+        default: false
+  
+  # Scheduled nightly check for new prompts
+  schedule:
+    - cron: '0 2 * * *'  # 2 AM UTC daily
+  
+  # Triggered by other workflows
+  workflow_call:
+
+permissions:
+  contents: write
+
+jobs:
+  retrofit:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+      
+      - name: Run release schedule generation
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "📅 Generating release schedule..."
+          python scripts/populate_release_schedule.py
+      
+      - name: Run code name generation
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "🏷️  Generating episode code names..."
+          python scripts/generate_code_names.py
+      
+      - name: Run enhanced Notion sync
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          GOOGLE_DRIVE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
+          NOTEBOOK_LM_API_KEY: ${{ secrets.NOTEBOOK_LM_API_KEY }}
+          PR_CYBR_P0D_DRIVE_FOLDER_ID: ${{ secrets.PR_CYBR_P0D_DRIVE_FOLDER_ID }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          echo "🔧 Running retrofit automation..."
+          python scripts/sync_notion_enhanced.py
+      
+      - name: Sync from Notion to GitHub
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: |
+          echo "⬇️  Syncing episodes from Notion..."
+          python scripts/sync_notion.py
+      
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected"
+          fi
+      
+      - name: Commit and push changes
+        if: steps.changes.outputs.has_changes == 'true' && inputs.dry_run != true
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Add all changes
+          git add episodes/
+          git add scripts/ || true
+          
+          # Create descriptive commit message
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          git commit -m "feat: retrofit automation updates" \
+                     -m "Automated retrofit sync and metadata updates" \
+                     -m "Synced at: $TIMESTAMP"
+          
+          git push
+      
+      - name: Summary
+        run: |
+          echo "### Retrofit Automation Complete 🔧" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.changes.outputs.has_changes }}" == "true" ]; then
+            if [ "${{ inputs.dry_run }}" == "true" ]; then
+              echo "🔍 **Dry Run Mode** - No changes committed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ Successfully processed and committed changes" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Changed Files:**" >> $GITHUB_STEP_SUMMARY
+            git diff HEAD~1 --name-only 2>/dev/null | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- (changes not committed)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No changes detected" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -n "${{ inputs.season }}" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Season Filter:** ${{ inputs.season }}" >> $GITHUB_STEP_SUMMARY
+          fi
