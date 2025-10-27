@@ -1,0 +1,36 @@
+# CODEOWNERS - Defines individuals or teams responsible for code in this repository
+# More info: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @PR-CYBR/maintainers
+
+# Workflows and CI/CD
+/.github/ @PR-CYBR/devops @PR-CYBR/maintainers
+/.github/workflows/ @PR-CYBR/devops
+
+# Python scripts
+/scripts/ @PR-CYBR/developers @PR-CYBR/maintainers
+
+# Episode content and metadata
+/episodes/ @PR-CYBR/content-team @PR-CYBR/maintainers
+
+# Documentation
+/docs/ @PR-CYBR/documentation @PR-CYBR/maintainers
+README.md @PR-CYBR/documentation
+CONTRIBUTING.md @PR-CYBR/documentation
+SECURITY.md @PR-CYBR/security @PR-CYBR/maintainers
+
+# n8n workflows
+/workflows/ @PR-CYBR/automation @PR-CYBR/maintainers
+
+# Templates
+/retrofitting/templates/ @PR-CYBR/content-team
+
+# Specification and planning
+/.specify/ @PR-CYBR/architects @PR-CYBR/maintainers
+PLAN.md @PR-CYBR/architects @PR-CYBR/maintainers
+
+# Security and governance
+SECURITY.md @PR-CYBR/security @PR-CYBR/maintainers
+CODEOWNERS @PR-CYBR/maintainers
+.env.example @PR-CYBR/security @PR-CYBR/devops

@@ -68,3 +68,124 @@ htmlcov/
 *.dSYM/
 
 # Note: Add technology-specific ignores when you adopt a stack
+
+# ============================================================================
+# PR-CYBR-P0D Specific Ignores
+# ============================================================================
+
+# Audio files (keep episodes small, use Archive.org for storage)
+*.mp3
+*.m4a
+*.wav
+*.aac
+*.opus
+# Exception: Allow tiny sample files for testing (under 1MB)
+!**/sample*.mp3
+
+# Video files
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Large media files
+*.zip
+*.tar.gz
+*.rar
+# Exception: Allow workflow exports
+!workflows/**/*.json
+
+# Transcription working files
+*.srt
+*.vtt
+*_transcript_temp.txt
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Google credentials
+*service-account*.json
+google-credentials.json
+credentials.json
+token.json
+
+# Notion exports
+notion-backup/
+*.notion
+
+# Temporary episode working files
+episodes/**/temp/
+episodes/**/*.tmp
+episodes/**/draft/
+
+# Whisper model files (large)
+whisper-models/
+*.pt
+
+# NotebookLM downloads
+notebooklm-audio-*.mp3
+
+# Local configuration overrides
+.env.development
+.env.production
+config.local.yaml
+
+# RSS feed backup
+docs/podcast.xml.backup
+
+# Documentation build outputs
+docs/_build/
+docs/.doctrees/
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+.Trash-*
+
+# IDEs
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+
+# Linting and formatting
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
