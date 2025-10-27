@@ -1,8 +1,24 @@
-default: true
-MD013: false
-MD022: false
-MD032: false
-MD031: false
-MD040: false
-MD033: false
-MD041: false
+# markdownlint-cli2 configuration
+# See: https://github.com/DavidAnson/markdownlint-cli2
+
+# Glob patterns for files to lint
+globs:
+  - "**/*.md"
+  - "!node_modules"
+  - "!.git"
+
+# Configuration object
+config:
+  # Enable all rules by default
+  default: true
+  
+  # Disable specific rules that conflict with our templates
+  MD013: false  # Line length
+  MD022: false  # Blanks around headings
+  MD032: false  # Blanks around lists
+  MD031: false  # Blanks around fenced code blocks
+  MD040: false  # Fenced code language
+  MD033: false  # Inline HTML
+  MD041: false  # First line heading
+  MD009: false  # Trailing spaces (needed for templates)
+  MD036: false  # Emphasis as heading
