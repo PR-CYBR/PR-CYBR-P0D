@@ -1,0 +1,185 @@
+name: Verify Environment Variables
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+
+jobs:
+  verify-env:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Create verification script
+        run: |
+          cat > verify_env.py << 'EOF'
+          #!/usr/bin/env python3
+          """Verify environment variables are configured correctly."""
+          import os
+          import sys
+
+          # Define required and optional secrets
+          REQUIRED_SECRETS = {
+              "NOTION_TOKEN": "Notion API integration token",
+              "NOTION_EPISODES_DB_ID": "Notion episodes database ID",
+          }
+
+          OPTIONAL_SECRETS = {
+              # Archive.org (required for publishing)
+              "ARCHIVE_ACCESS_KEY": "Internet Archive S3 access key",
+              "ARCHIVE_SECRET_KEY": "Internet Archive S3 secret key",
+              
+              # RSS Feed (required for distribution)
+              "FEED_TITLE": "Podcast feed title",
+              "FEED_AUTHOR": "Podcast author name",
+              "FEED_BASE_URL": "Base URL for GitHub Pages",
+              
+              # Optional AI features
+              "OPENAI_API_KEY": "OpenAI API key for transcription/show notes",
+              
+              # Optional Google integration
+              "GOOGLE_DRIVE_SERVICE_ACCOUNT": "Google Drive service account JSON",
+              "NOTEBOOK_LM_API_KEY": "NotebookLM API key",
+              
+              # Optional n8n webhooks
+              "N8N_PRE_URL": "n8n pre-campaign webhook URL",
+              "N8N_LIVE_URL": "n8n go-live webhook URL",
+              "N8N_POST_URL": "n8n post-campaign webhook URL",
+          }
+
+          def check_env_var(name, description, required=True):
+              """Check if environment variable is set."""
+              value = os.getenv(name)
+              
+              if value:
+                  # Mask the value for security
+                  if len(value) > 10:
+                      masked = value[:4] + "..." + value[-4:]
+                  else:
+                      masked = "***"
+                  return True, f"✅ {name}: {masked}"
+              else:
+                  status = "❌ MISSING" if required else "⚠️  NOT SET"
+                  return False, f"{status}: {name} - {description}"
+
+          def main():
+              print("=" * 70)
+              print("Environment Variables Verification")
+              print("=" * 70)
+              print()
+              
+              missing_required = []
+              missing_optional = []
+              
+              # Check required secrets
+              print("📋 Required Secrets:")
+              print("-" * 70)
+              for name, desc in REQUIRED_SECRETS.items():
+                  is_set, message = check_env_var(name, desc, required=True)
+                  print(message)
+                  if not is_set:
+                      missing_required.append(name)
+              
+              print()
+              
+              # Check optional secrets
+              print("🔧 Optional Secrets:")
+              print("-" * 70)
+              for name, desc in OPTIONAL_SECRETS.items():
+                  is_set, message = check_env_var(name, desc, required=False)
+                  print(message)
+                  if not is_set:
+                      missing_optional.append(name)
+              
+              print()
+              print("=" * 70)
+              print("Summary")
+              print("=" * 70)
+              
+              if missing_required:
+                  print()
+                  print("⚠️  Missing Required Secrets:")
+                  for name in missing_required:
+                      print(f"   - {name}: {REQUIRED_SECRETS[name]}")
+                  print()
+                  print("👉 Add these secrets in: Settings → Secrets and variables → Actions")
+                  print("📖 See .env.example for more information")
+                  print()
+                  print("⚠️  Note: This is informational only. Workflows will skip steps gracefully.")
+              else:
+                  print("✅ All required secrets are configured!")
+              
+              if missing_optional:
+                  print()
+                  print("ℹ️  Optional secrets not configured:")
+                  for name in missing_optional:
+                      print(f"   - {name}")
+                  print()
+                  print("These are optional and enable additional features.")
+                  print("The system will work without them using fallbacks.")
+              
+              print()
+              print("=" * 70)
+              
+              # Always exit with success - this is informational only
+              # We don't want to block PRs due to missing optional secrets
+              sys.exit(0)
+
+          if __name__ == "__main__":
+              main()
+          EOF
+          
+          chmod +x verify_env.py
+      
+      - name: Run verification
+        env:
+          # Required secrets
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_EPISODES_DB_ID: ${{ secrets.NOTION_EPISODES_DB_ID }}
+          
+          # Optional secrets - Archive.org
+          ARCHIVE_ACCESS_KEY: ${{ secrets.ARCHIVE_ACCESS_KEY }}
+          ARCHIVE_SECRET_KEY: ${{ secrets.ARCHIVE_SECRET_KEY }}
+          
+          # Optional secrets - RSS
+          FEED_TITLE: ${{ secrets.FEED_TITLE }}
+          FEED_AUTHOR: ${{ secrets.FEED_AUTHOR }}
+          FEED_BASE_URL: ${{ secrets.FEED_BASE_URL }}
+          
+          # Optional secrets - AI
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          
+          # Optional secrets - Google
+          GOOGLE_DRIVE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
+          NOTEBOOK_LM_API_KEY: ${{ secrets.NOTEBOOK_LM_API_KEY }}
+          
+          # Optional secrets - n8n
+          N8N_PRE_URL: ${{ secrets.N8N_PRE_URL }}
+          N8N_LIVE_URL: ${{ secrets.N8N_LIVE_URL }}
+          N8N_POST_URL: ${{ secrets.N8N_POST_URL }}
+        run: |
+          python verify_env.py
+      
+      - name: Create summary
+        if: always()
+        run: |
+          echo "### Environment Variables Check 🔐" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The verification script checks which secrets are configured." >> $GITHUB_STEP_SUMMARY
+          echo "See the job logs above for detailed results." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** This check is informational and does not fail the workflow." >> $GITHUB_STEP_SUMMARY
+          echo "Workflows will skip steps gracefully when secrets are missing." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📖 **Setup Guide:** See [.env.example](.env.example) for all available variables." >> $GITHUB_STEP_SUMMARY
+          echo "🔧 **Configure Secrets:** Repository Settings → Secrets and variables → Actions" >> $GITHUB_STEP_SUMMARY
