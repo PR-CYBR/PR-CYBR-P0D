@@ -2,6 +2,8 @@
 
 This is a quick reference for configuring PR-CYBR-P0D, including the new Retrofit Automation System.
 
+> **For Forks**: If you're setting up your own fork of this repository, also see the [Forking This Repository](README.md#forking-this-repository) section in the README for customization guidance.
+
 ## Required GitHub Secrets
 
 ### Notion Integration
