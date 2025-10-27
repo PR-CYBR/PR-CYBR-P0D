@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to PR-CYBR-P0D! This document provides guidelines for contributing to the project.
 
+> **Note**: If you want to create your own podcast automation pipeline using this code, see the [Forking This Repository](README.md#forking-this-repository) section in the README. This guide is for contributing improvements back to the PR-CYBR-P0D project itself.
+
 ## Development Workflow
 
 This project follows the [Spec-Kit framework](https://github.com/PR-CYBR/spec-bootstrap) for specification-driven development.
