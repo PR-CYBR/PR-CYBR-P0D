@@ -2,7 +2,7 @@
 
 This guide will help you set up the PR-CYBR-P0D podcast synchronization system.
 
-> **For Forks**: If you're setting up your own fork of this repository, see the comprehensive [Forking This Repository](README.md#forking-this-repository) section in the README for customization options and integration alternatives.
+> **For Forks**: If you're setting up your own fork of this repository, see the [Forking This Repository](README.md#forking-this-repository) section in the README for customization guidance.
 
 ## Prerequisites
 
