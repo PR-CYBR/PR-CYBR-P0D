@@ -1,3 +1,15 @@
 notion-client>=2.0.0
 requests>=2.31.0
 python-slugify>=8.0.0
+
+# Google Drive and Docs integration
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
+google-api-python-client>=2.100.0
+
+# Audio processing (optional, for duration extraction)
+mutagen>=1.47.0
+
+# Additional utilities
+python-dateutil>=2.8.2
