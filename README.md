@@ -94,6 +94,11 @@ See [Storage & Distribution Docs](docs/storage-distribution.md) for details.
 - 🔐 **Secure Integration**: Uses GitHub Secrets for all API credentials
 - 📈 **Scalable Design**: Handles 17 seasons × 52 episodes = 884 total episodes
 
+## Live Codebase Mindmap
+
+Auto-generated on each push: **repo-map.html** (via GitHub Pages and CI artifact).
+When Pages is enabled, it will be served at: `https://PR-CYBR.github.io/PR-CYBR-P0D/repo-map.html`
+
 ## Forking This Repository
 
 Want to create your own podcast automation pipeline? You can fork this repository and customize it for your needs!
