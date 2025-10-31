@@ -189,3 +189,6 @@ htmlcov/
 .ruff_cache/
 .mypy_cache/
 .dmypy.json
+
+# Markmap generated files (created by CI)
+markmap/
