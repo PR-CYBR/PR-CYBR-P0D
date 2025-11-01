@@ -13,7 +13,7 @@ This module extends the original sync_notion.py with:
 import os
 import json
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 from datetime import datetime
 
 from notion_client import Client
@@ -396,6 +396,25 @@ class EnhancedNotionSync:
             return False
 
 
+def get_season_database_ids() -> List[Tuple[int, str]]:
+    """
+    Get all season-specific database IDs from environment variables.
+    
+    Returns:
+        List of tuples containing (season_number, database_id) for all configured seasons
+    """
+    database_ids = []
+    
+    # Check for season-specific database IDs (S1 through S18)
+    for season in range(1, 19):
+        db_id = os.environ.get(f"PR_CYBR_P0D_S{season}_DB_ID")
+        if db_id:
+            database_ids.append((season, db_id))
+            print(f"✅ Found database ID for Season {season}")
+    
+    return database_ids
+
+
 def main():
     """Main entry point for enhanced sync."""
     print("=" * 70)
@@ -406,24 +425,49 @@ def main():
     notion_token = os.environ.get("NOTION_TOKEN")
     database_id = os.environ.get("NOTION_DATABASE_ID")
     
-    if not notion_token or not database_id:
-        print("❌ Missing required environment variables")
+    if not notion_token:
+        print("❌ Missing NOTION_TOKEN environment variable")
         return
     
-    # Initialize sync
-    sync = EnhancedNotionSync(notion_token, database_id)
+    # Get all season-specific database IDs
+    season_databases = get_season_database_ids()
     
-    # Find episodes to retrofit
-    episodes = sync.get_episodes_with_status("Not started")
+    # If no season-specific IDs found, fall back to NOTION_DATABASE_ID
+    if not season_databases and database_id:
+        season_databases = [(0, database_id)]  # Season 0 indicates fallback
+        print("✅ Using fallback NOTION_DATABASE_ID")
     
-    print(f"\n📊 Found {len(episodes)} episodes to process")
+    if not season_databases:
+        print("❌ No database IDs found. Set either NOTION_DATABASE_ID or PR_CYBR_P0D_S#_DB_ID")
+        return
     
-    # Process each episode
-    for episode in episodes:
-        sync.retrofit_episode(episode)
+    print(f"\n📊 Found {len(season_databases)} database(s) to process")
+    
+    # Process each database
+    total_episodes = 0
+    for season, db_id in season_databases:
+        print(f"\n{'=' * 70}")
+        if season > 0:
+            print(f"Processing Season {season} database: {db_id[:8]}...")
+        else:
+            print(f"Processing database: {db_id[:8]}...")
+        print(f"{'=' * 70}")
+        
+        # Initialize sync for this database
+        sync = EnhancedNotionSync(notion_token, db_id)
+        
+        # Find episodes to retrofit
+        episodes = sync.get_episodes_with_status("Not started")
+        total_episodes += len(episodes)
+        
+        print(f"\n📊 Found {len(episodes)} episodes to process")
+        
+        # Process each episode
+        for episode in episodes:
+            sync.retrofit_episode(episode)
     
     print("\n" + "=" * 70)
-    print("✅ Enhanced sync complete")
+    print(f"✅ Enhanced sync complete - Processed {total_episodes} total episodes")
     print("=" * 70)
 
 

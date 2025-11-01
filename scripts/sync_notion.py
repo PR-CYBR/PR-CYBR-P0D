@@ -29,6 +29,32 @@ MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds
 
 
+def get_season_database_ids() -> List[str]:
+    """
+    Get all season-specific database IDs from environment variables.
+    
+    Returns:
+        List of database IDs for all configured seasons
+    """
+    database_ids = []
+    
+    # Check for season-specific database IDs (S1 through S18)
+    for season in range(1, 19):
+        db_id = os.environ.get(f"PR_CYBR_P0D_S{season}_DB_ID")
+        if db_id:
+            database_ids.append(db_id)
+            print(f"✅ Found database ID for Season {season}")
+    
+    # If no season-specific IDs found, fall back to NOTION_DATABASE_ID
+    if not database_ids:
+        fallback_id = os.environ.get("NOTION_DATABASE_ID")
+        if fallback_id:
+            database_ids.append(fallback_id)
+            print("✅ Using fallback NOTION_DATABASE_ID")
+    
+    return database_ids
+
+
 class NotionEpisodeSync:
     """Handles synchronization of podcast episodes from Notion database."""
 
@@ -258,18 +284,35 @@ def main():
         print("❌ Error: NOTION_TOKEN environment variable not set")
         sys.exit(1)
     
-    if not NOTION_DATABASE_ID:
-        print("❌ Error: NOTION_DATABASE_ID environment variable not set")
+    # Get all database IDs (season-specific or fallback)
+    database_ids = get_season_database_ids()
+    
+    if not database_ids:
+        print("❌ Error: No NOTION_DATABASE_ID or season-specific database IDs found")
+        print("   Please set either NOTION_DATABASE_ID or PR_CYBR_P0D_S#_DB_ID environment variables")
         sys.exit(1)
     
-    # Perform sync
+    print(f"\n📊 Found {len(database_ids)} database(s) to sync")
+    
+    # Perform sync for each database
+    total_downloaded = 0
     try:
-        syncer = NotionEpisodeSync(NOTION_TOKEN, NOTION_DATABASE_ID)
-        downloaded_count = syncer.sync()
+        for idx, database_id in enumerate(database_ids, 1):
+            print(f"\n{'=' * 60}")
+            print(f"Syncing database {idx}/{len(database_ids)}: {database_id[:8]}...")
+            print(f"{'=' * 60}")
+            
+            syncer = NotionEpisodeSync(NOTION_TOKEN, database_id)
+            downloaded_count = syncer.sync()
+            total_downloaded += downloaded_count
         
-        # Exit with status code indicating number of downloads
-        # 0 = no new episodes, >0 = new episodes downloaded
-        sys.exit(0 if downloaded_count == 0 else 0)
+        print(f"\n{'=' * 60}")
+        print(f"✅ All databases synced successfully")
+        print(f"📊 Total new episodes downloaded: {total_downloaded}")
+        print(f"{'=' * 60}")
+        
+        # Exit with status code 0 regardless
+        sys.exit(0)
         
     except Exception as e:
         print(f"\n❌ Sync failed with error: {e}")

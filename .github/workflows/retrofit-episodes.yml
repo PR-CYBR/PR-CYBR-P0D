@@ -60,6 +60,24 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          PR_CYBR_P0D_S1_DB_ID: ${{ secrets.PR_CYBR_P0D_S1_DB_ID }}
+          PR_CYBR_P0D_S2_DB_ID: ${{ secrets.PR_CYBR_P0D_S2_DB_ID }}
+          PR_CYBR_P0D_S3_DB_ID: ${{ secrets.PR_CYBR_P0D_S3_DB_ID }}
+          PR_CYBR_P0D_S4_DB_ID: ${{ secrets.PR_CYBR_P0D_S4_DB_ID }}
+          PR_CYBR_P0D_S5_DB_ID: ${{ secrets.PR_CYBR_P0D_S5_DB_ID }}
+          PR_CYBR_P0D_S6_DB_ID: ${{ secrets.PR_CYBR_P0D_S6_DB_ID }}
+          PR_CYBR_P0D_S7_DB_ID: ${{ secrets.PR_CYBR_P0D_S7_DB_ID }}
+          PR_CYBR_P0D_S8_DB_ID: ${{ secrets.PR_CYBR_P0D_S8_DB_ID }}
+          PR_CYBR_P0D_S9_DB_ID: ${{ secrets.PR_CYBR_P0D_S9_DB_ID }}
+          PR_CYBR_P0D_S10_DB_ID: ${{ secrets.PR_CYBR_P0D_S10_DB_ID }}
+          PR_CYBR_P0D_S11_DB_ID: ${{ secrets.PR_CYBR_P0D_S11_DB_ID }}
+          PR_CYBR_P0D_S12_DB_ID: ${{ secrets.PR_CYBR_P0D_S12_DB_ID }}
+          PR_CYBR_P0D_S13_DB_ID: ${{ secrets.PR_CYBR_P0D_S13_DB_ID }}
+          PR_CYBR_P0D_S14_DB_ID: ${{ secrets.PR_CYBR_P0D_S14_DB_ID }}
+          PR_CYBR_P0D_S15_DB_ID: ${{ secrets.PR_CYBR_P0D_S15_DB_ID }}
+          PR_CYBR_P0D_S16_DB_ID: ${{ secrets.PR_CYBR_P0D_S16_DB_ID }}
+          PR_CYBR_P0D_S17_DB_ID: ${{ secrets.PR_CYBR_P0D_S17_DB_ID }}
+          PR_CYBR_P0D_S18_DB_ID: ${{ secrets.PR_CYBR_P0D_S18_DB_ID }}
           GOOGLE_DRIVE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
           NOTEBOOK_LM_API_KEY: ${{ secrets.NOTEBOOK_LM_API_KEY }}
           PR_CYBR_P0D_DRIVE_FOLDER_ID: ${{ secrets.PR_CYBR_P0D_DRIVE_FOLDER_ID }}
@@ -72,6 +90,24 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          PR_CYBR_P0D_S1_DB_ID: ${{ secrets.PR_CYBR_P0D_S1_DB_ID }}
+          PR_CYBR_P0D_S2_DB_ID: ${{ secrets.PR_CYBR_P0D_S2_DB_ID }}
+          PR_CYBR_P0D_S3_DB_ID: ${{ secrets.PR_CYBR_P0D_S3_DB_ID }}
+          PR_CYBR_P0D_S4_DB_ID: ${{ secrets.PR_CYBR_P0D_S4_DB_ID }}
+          PR_CYBR_P0D_S5_DB_ID: ${{ secrets.PR_CYBR_P0D_S5_DB_ID }}
+          PR_CYBR_P0D_S6_DB_ID: ${{ secrets.PR_CYBR_P0D_S6_DB_ID }}
+          PR_CYBR_P0D_S7_DB_ID: ${{ secrets.PR_CYBR_P0D_S7_DB_ID }}
+          PR_CYBR_P0D_S8_DB_ID: ${{ secrets.PR_CYBR_P0D_S8_DB_ID }}
+          PR_CYBR_P0D_S9_DB_ID: ${{ secrets.PR_CYBR_P0D_S9_DB_ID }}
+          PR_CYBR_P0D_S10_DB_ID: ${{ secrets.PR_CYBR_P0D_S10_DB_ID }}
+          PR_CYBR_P0D_S11_DB_ID: ${{ secrets.PR_CYBR_P0D_S11_DB_ID }}
+          PR_CYBR_P0D_S12_DB_ID: ${{ secrets.PR_CYBR_P0D_S12_DB_ID }}
+          PR_CYBR_P0D_S13_DB_ID: ${{ secrets.PR_CYBR_P0D_S13_DB_ID }}
+          PR_CYBR_P0D_S14_DB_ID: ${{ secrets.PR_CYBR_P0D_S14_DB_ID }}
+          PR_CYBR_P0D_S15_DB_ID: ${{ secrets.PR_CYBR_P0D_S15_DB_ID }}
+          PR_CYBR_P0D_S16_DB_ID: ${{ secrets.PR_CYBR_P0D_S16_DB_ID }}
+          PR_CYBR_P0D_S17_DB_ID: ${{ secrets.PR_CYBR_P0D_S17_DB_ID }}
+          PR_CYBR_P0D_S18_DB_ID: ${{ secrets.PR_CYBR_P0D_S18_DB_ID }}
         run: |
           echo "⬇️  Syncing episodes from Notion..."
           python scripts/sync_notion.py
