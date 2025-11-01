@@ -13,7 +13,7 @@ This module extends the original sync_notion.py with:
 import os
 import json
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 from datetime import datetime
 
 from notion_client import Client
@@ -396,12 +396,12 @@ class EnhancedNotionSync:
             return False
 
 
-def get_season_database_ids() -> List[str]:
+def get_season_database_ids() -> List[Tuple[int, str]]:
     """
     Get all season-specific database IDs from environment variables.
     
     Returns:
-        List of database IDs for all configured seasons
+        List of tuples containing (season_number, database_id) for all configured seasons
     """
     database_ids = []
     
