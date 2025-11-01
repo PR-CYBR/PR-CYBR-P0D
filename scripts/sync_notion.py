@@ -46,9 +46,11 @@ def get_season_database_ids() -> List[str]:
             print(f"✅ Found database ID for Season {season}")
     
     # If no season-specific IDs found, fall back to NOTION_DATABASE_ID
-    if not database_ids and NOTION_DATABASE_ID:
-        database_ids.append(NOTION_DATABASE_ID)
-        print("✅ Using fallback NOTION_DATABASE_ID")
+    if not database_ids:
+        fallback_id = os.environ.get("NOTION_DATABASE_ID")
+        if fallback_id:
+            database_ids.append(fallback_id)
+            print("✅ Using fallback NOTION_DATABASE_ID")
     
     return database_ids
 
