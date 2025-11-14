@@ -702,6 +702,7 @@ See [Retrofit Guide](retrofitting/docs/RETROFIT_GUIDE.md) for detailed troublesh
 - **[n8n Webhooks](docs/n8n-webhooks.md)** - Webhook integration and payload specifications
 - **[Storage & Distribution](docs/storage-distribution.md)** - Storage adapters and RSS hosting
 - **[NotebookLM Guide](docs/notebooklm-guide.md)** - AI-powered content generation setup
+- **[Fathom Automation Guide](docs/fathom-automation-guide.md)** - Complete guide to Zoom → Fathom → Agent automation system
 
 ### 🔧 Technical Documentation
 - **[Complete Retrofit Guide](retrofitting/docs/RETROFIT_GUIDE.md)** - Comprehensive automation documentation
