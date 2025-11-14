@@ -1,0 +1,163 @@
+name: Fathom Meeting Ingest
+
+on:
+  # Trigger via repository_dispatch webhook from Fathom
+  repository_dispatch:
+    types: [fathom_meeting_ended]
+  
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      meeting_id:
+        description: 'Meeting ID for testing'
+        required: true
+        default: 'test-meeting-001'
+      transcript:
+        description: 'Sample transcript text'
+        required: false
+        default: 'TODO: Update documentation\nACTION ITEM: Fix bug in agent code\nNEED TO implement new feature'
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  ingest-transcript:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+      
+      - name: Extract meeting data
+        id: meeting_data
+        run: |
+          # Extract meeting ID from event or input
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            MEETING_ID="${{ github.event.client_payload.meeting_id }}"
+            echo "Meeting ID from webhook: $MEETING_ID"
+          else
+            MEETING_ID="${{ github.event.inputs.meeting_id }}"
+            echo "Meeting ID from manual input: $MEETING_ID"
+          fi
+          
+          echo "meeting_id=$MEETING_ID" >> $GITHUB_OUTPUT
+          
+          # Create meeting directory
+          MEETING_DIR="data/meetings/$MEETING_ID"
+          mkdir -p "$MEETING_DIR"
+          echo "meeting_dir=$MEETING_DIR" >> $GITHUB_OUTPUT
+      
+      - name: Save raw transcript payload
+        run: |
+          MEETING_DIR="${{ steps.meeting_data.outputs.meeting_dir }}"
+          
+          # For repository_dispatch, save the full payload
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo '${{ toJson(github.event.client_payload) }}' > "$MEETING_DIR/raw.json"
+          else
+            # For manual trigger, create a test payload
+            cat > "$MEETING_DIR/raw.json" << 'EOF'
+          {
+            "meeting_id": "${{ github.event.inputs.meeting_id }}",
+            "transcript": "${{ github.event.inputs.transcript }}",
+            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "source": "manual_trigger"
+          }
+          EOF
+          fi
+          
+          echo "✅ Saved raw transcript to $MEETING_DIR/raw.json"
+          cat "$MEETING_DIR/raw.json"
+      
+      - name: Process transcript and extract tasks
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          MEETING_DIR="${{ steps.meeting_data.outputs.meeting_dir }}"
+          
+          python scripts/extract_tasks.py \
+            --input "$MEETING_DIR/raw.json" \
+            --output "$MEETING_DIR/tasks.json" \
+            --verbose
+          
+          echo "✅ Extracted tasks to $MEETING_DIR/tasks.json"
+          cat "$MEETING_DIR/tasks.json"
+      
+      - name: Commit meeting data
+        id: commit
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          MEETING_DIR="${{ steps.meeting_data.outputs.meeting_dir }}"
+          MEETING_ID="${{ steps.meeting_data.outputs.meeting_id }}"
+          
+          # Add meeting files
+          git add "$MEETING_DIR/"
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            
+            # Commit changes
+            git commit -m "feat: ingest Fathom meeting transcript" \
+                       -m "Meeting ID: $MEETING_ID" \
+                       -m "Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+            
+            git push
+            echo "✅ Committed meeting data"
+          fi
+      
+      - name: Upload tasks artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: meeting-tasks-${{ steps.meeting_data.outputs.meeting_id }}
+          path: ${{ steps.meeting_data.outputs.meeting_dir }}/tasks.json
+          retention-days: 30
+      
+      - name: Dispatch issue creation workflow
+        if: steps.commit.outputs.has_changes == 'true'
+        run: |
+          MEETING_ID="${{ steps.meeting_data.outputs.meeting_id }}"
+          
+          # Dispatch follow-up event to create agent issues
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/dispatches" \
+            -d "{\"event_type\":\"create_agent_tasks\",\"client_payload\":{\"meeting_id\":\"$MEETING_ID\"}}"
+          
+          echo "✅ Dispatched create_agent_tasks event for meeting $MEETING_ID"
+      
+      - name: Summary
+        run: |
+          echo "### Fathom Meeting Ingestion Complete 🎙️" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Meeting ID:** ${{ steps.meeting_data.outputs.meeting_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.commit.outputs.has_changes }}" == "true" ]; then
+            echo "✅ Successfully ingested and processed transcript" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Tasks extracted and committed to repository" >> $GITHUB_STEP_SUMMARY
+            echo "- Issue creation workflow dispatched" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No new data to process" >> $GITHUB_STEP_SUMMARY
+          fi

@@ -1,0 +1,128 @@
+name: Create Agent Issues
+
+on:
+  # Trigger via repository_dispatch from fathom-ingest workflow
+  repository_dispatch:
+    types: [create_agent_tasks]
+  
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      meeting_id:
+        description: 'Meeting ID to process'
+        required: true
+        default: 'test-meeting-001'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  create-issues:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+          pip install pyyaml  # Ensure PyYAML is installed
+      
+      - name: Extract meeting ID
+        id: meeting_data
+        run: |
+          # Extract meeting ID from event or input
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            MEETING_ID="${{ github.event.client_payload.meeting_id }}"
+            echo "Meeting ID from webhook: $MEETING_ID"
+          else
+            MEETING_ID="${{ github.event.inputs.meeting_id }}"
+            echo "Meeting ID from manual input: $MEETING_ID"
+          fi
+          
+          echo "meeting_id=$MEETING_ID" >> $GITHUB_OUTPUT
+          
+          # Set tasks file path
+          TASKS_FILE="data/meetings/$MEETING_ID/tasks.json"
+          echo "tasks_file=$TASKS_FILE" >> $GITHUB_OUTPUT
+          
+          # Check if tasks file exists
+          if [ ! -f "$TASKS_FILE" ]; then
+            echo "❌ Tasks file not found: $TASKS_FILE"
+            echo "tasks_exists=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Tasks file found: $TASKS_FILE"
+            echo "tasks_exists=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Download tasks from artifact (fallback)
+        if: steps.meeting_data.outputs.tasks_exists == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: meeting-tasks-${{ steps.meeting_data.outputs.meeting_id }}
+          path: data/meetings/${{ steps.meeting_data.outputs.meeting_id }}/
+        continue-on-error: true
+      
+      - name: Parse and validate tasks
+        id: parse_tasks
+        run: |
+          TASKS_FILE="${{ steps.meeting_data.outputs.tasks_file }}"
+          
+          if [ ! -f "$TASKS_FILE" ]; then
+            echo "❌ Tasks file still not found after artifact download"
+            echo "task_count=0" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Count tasks in file
+          TASK_COUNT=$(python3 -c "import json; data=json.load(open('$TASKS_FILE')); print(len(data.get('tasks', [])))")
+          echo "task_count=$TASK_COUNT" >> $GITHUB_OUTPUT
+          echo "Found $TASK_COUNT tasks to process"
+          
+          # Display tasks summary
+          echo "### Tasks Summary" >> $GITHUB_STEP_SUMMARY
+          python3 -c "
+          import json
+          with open('$TASKS_FILE') as f:
+              data = json.load(f)
+          print(f\"Meeting ID: {data.get('meeting_id', 'unknown')}\")
+          print(f\"Summary: {data.get('summary', 'N/A')}\")
+          print(f\"Tasks: {len(data.get('tasks', []))}\")
+          for task in data.get('tasks', []):
+              print(f\"  - [{task['task_id']}] {task['title'][:60]}... → {task['agent']}/{task['repo']}\")
+          "
+      
+      - name: Create GitHub issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TASKS_FILE="${{ steps.meeting_data.outputs.tasks_file }}"
+          
+          python scripts/create_issues.py \
+            --input "$TASKS_FILE" \
+            --config config/agents.yaml \
+            --verbose
+      
+      - name: Summary
+        run: |
+          echo "### Agent Issues Created 🤖" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Meeting ID:** ${{ steps.meeting_data.outputs.meeting_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tasks Processed:** ${{ steps.parse_tasks.outputs.task_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Issues have been created or updated in agent repositories" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Agent repositories will process issues automatically" >> $GITHUB_STEP_SUMMARY
+          echo "- Codex autopatch workflows will create PRs" >> $GITHUB_STEP_SUMMARY
+          echo "- Results will be synced back to Notion" >> $GITHUB_STEP_SUMMARY

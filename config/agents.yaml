@@ -1,0 +1,20 @@
+# Agent Repository Mapping Configuration
+# Maps agent IDs to their corresponding repository names
+# Used by create_issues.py to route tasks to the correct repository
+
+agents:
+  A-01: PR-CYBR-AGENT-01
+  A-02: PR-CYBR-AGENT-02
+  A-03: PR-CYBR-AGENT-03
+  A-04: PR-CYBR-AGENT-04
+  A-05: PR-CYBR-AGENT-05
+  A-06: PR-CYBR-AGENT-06
+  A-07: PR-CYBR-AGENT-07
+  A-08: PR-CYBR-AGENT-08
+  A-09: PR-CYBR-AGENT-09
+  A-10: PR-CYBR-AGENT-10
+  A-11: PR-CYBR-AGENT-11
+  A-12: PR-CYBR-AGENT-12
+
+# Organization name for all repositories
+organization: PR-CYBR
