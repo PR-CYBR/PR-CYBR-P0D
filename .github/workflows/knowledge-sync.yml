@@ -1,0 +1,243 @@
+name: Knowledge Sync
+
+on:
+  # Trigger on PR merge to main branch
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number'
+        required: true
+        type: number
+      agent:
+        description: 'Agent ID (e.g., A-01)'
+        required: true
+      repo:
+        description: 'Repository name'
+        required: true
+      issue_number:
+        description: 'Issue number'
+        required: true
+        type: number
+      meeting_date:
+        description: 'Meeting date (YYYY-MM-DD)'
+        required: true
+      summary:
+        description: 'Summary of the work done'
+        required: true
+
+permissions:
+  contents: write
+  discussions: write
+
+jobs:
+  sync-knowledge:
+    # Only run if PR was merged (for automatic trigger)
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+      
+      - name: Extract PR metadata
+        id: pr_metadata
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual trigger - use inputs
+            echo "pr_number=${{ github.event.inputs.pr_number }}" >> $GITHUB_OUTPUT
+            echo "agent=${{ github.event.inputs.agent }}" >> $GITHUB_OUTPUT
+            echo "repo=${{ github.event.inputs.repo }}" >> $GITHUB_OUTPUT
+            echo "issue_number=${{ github.event.inputs.issue_number }}" >> $GITHUB_OUTPUT
+            echo "meeting_date=${{ github.event.inputs.meeting_date }}" >> $GITHUB_OUTPUT
+            echo "summary=${{ github.event.inputs.summary }}" >> $GITHUB_OUTPUT
+          else
+            # Automatic trigger - extract from PR
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            PR_TITLE="${{ github.event.pull_request.title }}"
+            PR_BODY="${{ github.event.pull_request.body }}"
+            
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            
+            # Extract agent from PR labels or body
+            AGENT=$(echo "$PR_BODY" | grep -oP 'Agent:\s*\K[A-Z]-\d+' | head -1 || echo "unknown")
+            echo "agent=$AGENT" >> $GITHUB_OUTPUT
+            
+            # Extract repo from context
+            REPO="${{ github.event.pull_request.head.repo.name }}"
+            echo "repo=$REPO" >> $GITHUB_OUTPUT
+            
+            # Extract issue number from PR body or title
+            ISSUE_NUM=$(echo "$PR_BODY" | grep -oP '#\K\d+' | head -1 || echo "0")
+            echo "issue_number=$ISSUE_NUM" >> $GITHUB_OUTPUT
+            
+            # Use current date as meeting date
+            MEETING_DATE=$(date -u +"%Y-%m-%d")
+            echo "meeting_date=$MEETING_DATE" >> $GITHUB_OUTPUT
+            
+            # Use PR title as summary
+            echo "summary=$PR_TITLE" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create GitHub Discussion
+        id: discussion
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="Knowledge Share: ${{ steps.pr_metadata.outputs.summary }}"
+          BODY="## Completed Work Summary
+
+          **Agent:** ${{ steps.pr_metadata.outputs.agent }}
+          **Repository:** ${{ steps.pr_metadata.outputs.repo }}
+          **Issue:** #${{ steps.pr_metadata.outputs.issue_number }}
+          **PR:** #${{ steps.pr_metadata.outputs.pr_number }}
+          **Meeting Date:** ${{ steps.pr_metadata.outputs.meeting_date }}
+
+          ### Summary
+          ${{ steps.pr_metadata.outputs.summary }}
+
+          ### Links
+          - Pull Request: #${{ steps.pr_metadata.outputs.pr_number }}
+          - Original Issue: https://github.com/PR-CYBR/${{ steps.pr_metadata.outputs.repo }}/issues/${{ steps.pr_metadata.outputs.issue_number }}
+
+          ---
+          *This discussion was automatically created by the Knowledge Sync workflow.*"
+          
+          # Create discussion using GraphQL API
+          CATEGORY_ID=$(gh api graphql -f query='
+            query($owner: String!, $repo: String!) {
+              repository(owner: $owner, name: $repo) {
+                discussionCategories(first: 10) {
+                  nodes {
+                    id
+                    name
+                  }
+                }
+              }
+            }
+          ' -f owner=PR-CYBR -f repo=PR-CYBR-P0D | jq -r '.data.repository.discussionCategories.nodes[] | select(.name=="General") | .id' || echo "")
+          
+          if [ -z "$CATEGORY_ID" ]; then
+            echo "⚠️  Could not find discussion category, skipping discussion creation"
+            echo "discussion_created=false" >> $GITHUB_OUTPUT
+          else
+            DISCUSSION_ID=$(gh api graphql -f query='
+              mutation($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
+                createDiscussion(input: {
+                  repositoryId: $repositoryId,
+                  categoryId: $categoryId,
+                  title: $title,
+                  body: $body
+                }) {
+                  discussion {
+                    id
+                    url
+                  }
+                }
+              }
+            ' -f repositoryId="$(gh api repos/PR-CYBR/PR-CYBR-P0D --jq .node_id)" \
+              -f categoryId="$CATEGORY_ID" \
+              -f title="$TITLE" \
+              -f body="$BODY" | jq -r '.data.createDiscussion.discussion.url' || echo "")
+            
+            if [ -n "$DISCUSSION_ID" ]; then
+              echo "discussion_url=$DISCUSSION_ID" >> $GITHUB_OUTPUT
+              echo "discussion_created=true" >> $GITHUB_OUTPUT
+              echo "✅ Created discussion: $DISCUSSION_ID"
+            else
+              echo "discussion_created=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+      
+      - name: Create or update Gist
+        id: gist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          GIST_FILENAME="knowledge-${{ steps.pr_metadata.outputs.agent }}-$(date +%Y%m%d).md"
+          GIST_CONTENT="# Knowledge Share: ${{ steps.pr_metadata.outputs.summary }}
+
+          **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Agent:** ${{ steps.pr_metadata.outputs.agent }}
+          **Repository:** ${{ steps.pr_metadata.outputs.repo }}
+          **Issue:** #${{ steps.pr_metadata.outputs.issue_number }}
+          **PR:** #${{ steps.pr_metadata.outputs.pr_number }}
+
+          ## Summary
+          ${{ steps.pr_metadata.outputs.summary }}
+
+          ## Links
+          - Repository: https://github.com/PR-CYBR/${{ steps.pr_metadata.outputs.repo }}
+          - Issue: https://github.com/PR-CYBR/${{ steps.pr_metadata.outputs.repo }}/issues/${{ steps.pr_metadata.outputs.issue_number }}
+          - Pull Request: https://github.com/PR-CYBR/${{ steps.pr_metadata.outputs.repo }}/pull/${{ steps.pr_metadata.outputs.pr_number }}
+
+          ---
+          *Generated by PR-CYBR Knowledge Sync*"
+          
+          # Create gist
+          GIST_URL=$(gh gist create "$GIST_FILENAME" -d "Knowledge share from ${{ steps.pr_metadata.outputs.agent }}" -p <<< "$GIST_CONTENT" || echo "")
+          
+          if [ -n "$GIST_URL" ]; then
+            echo "gist_url=$GIST_URL" >> $GITHUB_OUTPUT
+            echo "gist_created=true" >> $GITHUB_OUTPUT
+            echo "✅ Created gist: $GIST_URL"
+          else
+            echo "gist_created=false" >> $GITHUB_OUTPUT
+            echo "⚠️  Failed to create gist"
+          fi
+      
+      - name: Sync to Notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: |
+          # Only run if Notion credentials are available
+          if [ -z "$NOTION_TOKEN" ] || [ -z "$NOTION_DATABASE_ID" ]; then
+            echo "⚠️  Notion credentials not configured, skipping sync"
+            exit 0
+          fi
+          
+          python scripts/notion_sync.py \
+            --agent "${{ steps.pr_metadata.outputs.agent }}" \
+            --repo "${{ steps.pr_metadata.outputs.repo }}" \
+            --issue ${{ steps.pr_metadata.outputs.issue_number }} \
+            --pr ${{ steps.pr_metadata.outputs.pr_number }} \
+            --meeting-date "${{ steps.pr_metadata.outputs.meeting_date }}" \
+            --summary "${{ steps.pr_metadata.outputs.summary }}" \
+            --verbose
+      
+      - name: Summary
+        run: |
+          echo "### Knowledge Sync Complete 📚" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**PR:** #${{ steps.pr_metadata.outputs.pr_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Agent:** ${{ steps.pr_metadata.outputs.agent }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** ${{ steps.pr_metadata.outputs.repo }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.discussion.outputs.discussion_created }}" == "true" ]; then
+            echo "✅ **Discussion:** ${{ steps.discussion.outputs.discussion_url }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ steps.gist.outputs.gist_created }}" == "true" ]; then
+            echo "✅ **Gist:** ${{ steps.gist.outputs.gist_url }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "✅ **Notion:** Synced successfully" >> $GITHUB_STEP_SUMMARY

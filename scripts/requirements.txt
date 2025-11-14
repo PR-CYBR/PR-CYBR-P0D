@@ -13,3 +13,4 @@ mutagen>=1.47.0
 
 # Additional utilities
 python-dateutil>=2.8.2
+pyyaml>=6.0

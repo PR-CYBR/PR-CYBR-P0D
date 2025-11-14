@@ -447,6 +447,171 @@ PR-CYBR-P0D/
 └── README.md                           # This file
 ```
 
+## Automation System
+
+### Fathom → Transcript → Tasks → Agents
+
+This repository implements an automated workflow that transforms meeting transcripts from Fathom AI into actionable tasks distributed across agent repositories.
+
+#### How It Works
+
+```
+Zoom Meeting
+  ↓ (recorded)
+Fathom AI
+  ↓ (webhook: fathom_meeting_ended)
+.github/workflows/fathom-ingest.yml
+  ↓ (processes transcript)
+scripts/extract_tasks.py
+  ↓ (extracts tasks via LLM)
+data/meetings/<meeting_id>/tasks.json
+  ↓ (dispatches: create_agent_tasks)
+.github/workflows/create-agent-issues.yml
+  ↓ (creates issues)
+scripts/create_issues.py
+  ↓ (routes to agent repos)
+PR-CYBR-AGENT-01..12 Issues
+  ↓ (labeled: automation/codex)
+Codex Autopatch Workflow
+  ↓ (creates PR)
+.github/workflows/knowledge-sync.yml
+  ↓ (on PR merge)
+GitHub Discussions + Gist + Notion
+```
+
+#### Components
+
+**1. Fathom Webhook Ingestion** (`.github/workflows/fathom-ingest.yml`)
+- Triggered by `repository_dispatch` event `fathom_meeting_ended`
+- Saves raw transcript to `data/meetings/<meeting_id>/raw.json`
+- Calls `scripts/extract_tasks.py` to process transcript
+- Outputs structured task list to `tasks.json`
+- Dispatches follow-up event `create_agent_tasks`
+
+**2. Task Extraction** (`scripts/extract_tasks.py`)
+- Processes meeting transcripts using OpenAI API (or stub mode)
+- Identifies actionable tasks from conversation
+- Structures tasks with agent assignment, priority, and labels
+- Output schema:
+  ```json
+  {
+    "meeting_id": "...",
+    "summary": "...",
+    "tasks": [
+      {
+        "task_id": "...",
+        "agent": "A-01",
+        "repo": "PR-CYBR-AGENT-01",
+        "title": "...",
+        "description": "...",
+        "priority": "high|medium|low",
+        "type": "bug|enhancement|documentation",
+        "labels": ["automation/codex", "meeting/..."],
+        "explicit": true|false
+      }
+    ]
+  }
+  ```
+
+**3. Issue Routing** (`.github/workflows/create-agent-issues.yml`)
+- Triggered by `create_agent_tasks` dispatch event
+- Reads `tasks.json` from meeting directory
+- Calls `scripts/create_issues.py` to create GitHub issues
+- Routes tasks to appropriate agent repositories
+
+**4. Issue Creation** (`scripts/create_issues.py`)
+- Maps agent IDs to repositories using `config/agents.yaml`
+- Provides idempotency by checking for existing issues
+- Creates or updates issues with proper labels and metadata
+- Supports dry-run mode for testing
+
+**5. Agent Repository Mapping** (`config/agents.yaml`)
+- Maps A-01 through A-12 to PR-CYBR-AGENT-01 through PR-CYBR-AGENT-12
+- Used by `create_issues.py` to route tasks correctly
+
+**6. Codex Autopatch Template** (`.github/workflows/codex-autopatch-template.yml`)
+- Reusable workflow for agent repositories
+- Triggered by issues labeled `automation/codex`
+- Clones repo and runs Codex AI container
+- Executes automated code modifications
+- Runs tests and creates pull request
+- Usage in agent repos:
+  ```yaml
+  uses: PR-CYBR/PR-CYBR-P0D/.github/workflows/codex-autopatch-template.yml@main
+  ```
+
+**7. Knowledge Sync** (`.github/workflows/knowledge-sync.yml`)
+- Triggered on PR merge to main branch
+- Creates GitHub Discussion with work summary
+- Creates public Gist with detailed information
+- Syncs results to Notion database via `scripts/notion_sync.py`
+
+**8. Notion Integration** (`scripts/notion_sync.py`)
+- Syncs completed work back to Notion
+- Uses deterministic UUIDs for idempotency
+- Tracks agent, repo, issue, PR, meeting date, and summary
+- Automatically updates existing entries
+
+#### File Locations
+
+- **Workflows:** `.github/workflows/fathom-ingest.yml`, `create-agent-issues.yml`, `codex-autopatch-template.yml`, `knowledge-sync.yml`
+- **Scripts:** `scripts/extract_tasks.py`, `scripts/create_issues.py`, `scripts/notion_sync.py`
+- **Config:** `config/agents.yaml`
+- **Data:** `data/meetings/<meeting_id>/` (raw.json, tasks.json)
+
+#### Testing Repository Dispatch Events
+
+**Test Fathom Webhook Ingestion:**
+```bash
+curl -X POST \
+  -H "Accept: application/vnd.github.v3+json" \
+  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  https://api.github.com/repos/PR-CYBR/PR-CYBR-P0D/dispatches \
+  -d '{
+    "event_type": "fathom_meeting_ended",
+    "client_payload": {
+      "meeting_id": "test-meeting-001",
+      "transcript": "TODO: Update documentation\nACTION ITEM: Fix bug in agent code",
+      "timestamp": "2025-01-15T10:00:00Z"
+    }
+  }'
+```
+
+**Test Issue Creation:**
+```bash
+curl -X POST \
+  -H "Accept: application/vnd.github.v3+json" \
+  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  https://api.github.com/repos/PR-CYBR/PR-CYBR-P0D/dispatches \
+  -d '{
+    "event_type": "create_agent_tasks",
+    "client_payload": {
+      "meeting_id": "test-meeting-001"
+    }
+  }'
+```
+
+**Manual Workflow Trigger:**
+```bash
+# Via GitHub CLI
+gh workflow run fathom-ingest.yml -f meeting_id=test-001 -f transcript="TODO: Test task"
+
+# Via GitHub UI
+# Go to Actions → Fathom Meeting Ingest → Run workflow
+```
+
+#### Environment Variables
+
+**For Task Extraction:**
+- `OPENAI_API_KEY`: OpenAI API key for LLM processing (optional, uses stub if not set)
+
+**For Issue Creation:**
+- `GITHUB_TOKEN`: Automatically provided by GitHub Actions
+
+**For Notion Sync:**
+- `NOTION_TOKEN`: Notion integration token
+- `NOTION_DATABASE_ID`: Target Notion database ID
+
 ## Branching Strategy
 
 This repository follows the comprehensive branching model from [spec-bootstrap](https://github.com/PR-CYBR/spec-bootstrap). See [BRANCHING.md](BRANCHING.md) for details on:
@@ -537,6 +702,7 @@ See [Retrofit Guide](retrofitting/docs/RETROFIT_GUIDE.md) for detailed troublesh
 - **[n8n Webhooks](docs/n8n-webhooks.md)** - Webhook integration and payload specifications
 - **[Storage & Distribution](docs/storage-distribution.md)** - Storage adapters and RSS hosting
 - **[NotebookLM Guide](docs/notebooklm-guide.md)** - AI-powered content generation setup
+- **[Fathom Automation Guide](docs/fathom-automation-guide.md)** - Complete guide to Zoom → Fathom → Agent automation system
 
 ### 🔧 Technical Documentation
 - **[Complete Retrofit Guide](retrofitting/docs/RETROFIT_GUIDE.md)** - Comprehensive automation documentation
